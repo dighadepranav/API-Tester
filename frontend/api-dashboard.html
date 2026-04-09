@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Performance Analyzer</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #080c10;
+      --bg2: #0d1117;
+      --bg3: #111820;
+      --surface: #141c26;
+      --surface2: #1a2535;
+      --border: rgba(255, 255, 255, 0.06);
+      --border2: rgba(255, 255, 255, 0.12);
+      --accent: #00e5ff;
+      --accent2: #7b61ff;
+      --success: #00e096;
+      --warn: #ffb547;
+      --danger: #ff5c7a;
+      --text: #e8edf5;
+      --text2: #8896a8;
+      --text3: #4a5568;
+      --mono: 'JetBrains Mono', monospace;
+      --display: 'Syne', sans-serif;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--mono);
+      background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), url('https://images.unsplash.com/photo-1616478170311-26daadd66f3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Remove old grid overlay */
+    body::before,
+    body::after {
+      display: none;
+    }
+
+    * {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Layout */
+    .shell {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      grid-template-rows: 56px 1fr;
+      min-height: 100vh;
+    }
+
+    /* Top bar */
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 24px;
+      background: rgba(8, 12, 16, 0.9);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--display);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .topbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text2);
+      padding: 4px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+      overflow-y: auto;
+    }
+
+    .nav-section {
+      padding: 0 12px;
+      margin-bottom: 24px;
+    }
+
+    .nav-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text3);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0 12px;
+      margin-bottom: 6px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+
+    .nav-item:hover {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: rgba(0, 229, 255, 0.08);
+      color: var(--accent);
+      border-color: rgba(0, 229, 255, 0.2);
+    }
+
+    .nav-item svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      font-size: 10px;
+      background: var(--surface2);
+      color: var(--text3);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .nav-item.active .nav-badge {
+      background: rgba(0, 229, 255, 0.15);
+      color: var(--accent);
+    }
+
+    /* Main */
+    .main {
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Page header */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .page-title {
+      font-family: var(--display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .page-sub {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 3px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      background: #33eeff;
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-ghost {
+      background: var(--surface);
+      color: var(--text2);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--border2);
+      color: var(--text);
+    }
+
+    /* Tester card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text2);
+    }
+
+    .card-header svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .card-body {
+      padding: 18px;
+    }
+
+    .tester-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .method-select {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 10px 12px;
+      cursor: pointer;
+      outline: none;
+      width: 100px;
+    }
+
+    .url-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .url-input::placeholder {
+      color: var(--text3);
+    }
+
+    .url-input:focus {
+      border-color: var(--accent);
+    }
+
+    .method-select option {
+      background: var(--bg3);
+    }
+
+    .send-btn {
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .send-btn:hover {
+      background: #33eeff;
+    }
+
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .send-btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    /* Headers section */
+    .headers-section {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      color: var(--text3);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .kv-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .kv-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text2);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 7px 10px;
+      outline: none;
+    }
+
+    .kv-input::placeholder {
+      color: var(--text3);
+    }
+
+    .kv-input:focus {
+      border-color: var(--border2);
+      color: var(--text);
+    }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .icon-btn:hover {
+      border-color: var(--border2);
+      color: var(--text2);
+    }
+
+    /* Stats grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent-color, var(--accent)), transparent);
+    }
+
+    .stat-card:hover {
+      border-color: var(--border2);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .stat-val {
+      font-family: var(--display);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-sub {
+      font-size: 10px;
+      color: var(--text3);
+    }
+
+    .stat-change {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .stat-change.up {
+      background: rgba(0, 224, 150, 0.1);
+      color: var(--success);
+    }
+
+    .stat-change.down {
+      background: rgba(255, 92, 122, 0.1);
+      color: var(--danger);
+    }
+
+    /* Two-col layout */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    /* Response panel */
+    .response-panel {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .response-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+
+    .resp-tab {
+      padding: 10px 16px;
+      font-size: 11px;
+      color: var(--text3);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .resp-tab:hover {
+      color: var(--text2);
+    }
+
+    .resp-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .resp-meta {
+      display: flex;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .meta-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 5px;
+    }
+
+    .meta-badge.status-ok {
+      background: rgba(0, 224, 150, 0.1);
+      color: var(--success);
+    }
+
+    .meta-badge.status-err {
+      background: rgba(255, 92, 122, 0.1);
+      color: var(--danger);
+    }
+
+    .meta-badge.status-warn {
+      background: rgba(255, 181, 71, 0.1);
+      color: var(--warn);
+    }
+
+    .meta-badge.neutral {
+      background: var(--surface2);
+      color: var(--text2);
+    }
+
+    .resp-body {
+      padding: 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.7;
+      color: var(--text2);
+      max-height: 280px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .resp-body::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .resp-body::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .resp-body::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 2px;
+    }
+
+    .json-key {
+      color: #7dd3fc;
+    }
+
+    .json-str {
+      color: #86efac;
+    }
+
+    .json-num {
+      color: #fda4af;
+    }
+
+    .json-bool {
+      color: var(--warn);
+    }
+
+    .json-null {
+      color: var(--text3);
+    }
+
+    /* History table */
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .history-table th {
+      font-size: 10px;
+      color: var(--text3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 400;
+    }
+
+    .history-table td {
+      padding: 10px 12px;
+      font-size: 11px;
+      color: var(--text2);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    .history-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .history-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .method-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .method-tag.GET {
+      background: rgba(0, 229, 255, 0.1);
+      color: var(--accent);
+    }
+
+    .method-tag.POST {
+      background: rgba(123, 97, 255, 0.15);
+      color: #a78bfa;
+    }
+
+    .method-tag.PUT {
+      background: rgba(255, 181, 71, 0.1);
+      color: var(--warn);
+    }
+
+    .method-tag.DELETE {
+      background: rgba(255, 92, 122, 0.1);
+      color: var(--danger);
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .status-2xx {
+      background: rgba(0, 224, 150, 0.1);
+      color: var(--success);
+    }
+
+    .status-4xx,
+    .status-5xx {
+      background: rgba(255, 92, 122, 0.1);
+      color: var(--danger);
+    }
+
+    .status-3xx {
+      background: rgba(255, 181, 71, 0.1);
+      color: var(--warn);
+    }
+
+    /* Latency bar */
+    .latency-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bar-track {
+      height: 4px;
+      width: 60px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    /* Chart */
+    .chart-wrap {
+      padding: 16px 18px;
+    }
+
+    .mini-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 80px;
+    }
+
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .bar-col-fill {
+      width: 100%;
+      border-radius: 3px 3px 0 0;
+      transition: opacity 0.15s;
+      min-height: 4px;
+    }
+
+    .bar-col:hover .bar-col-fill {
+      opacity: 0.7;
+    }
+
+    .bar-col-label {
+      font-size: 9px;
+      color: var(--text3);
+    }
+
+    /* Loading spinner */
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(0, 229, 255, 0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+
+    .loading .spinner {
+      display: block;
+    }
+
+    .loading .send-icon {
+      display: none;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text3);
+      font-size: 12px;
+    }
+
+    .empty-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.4;
+    }
+
+    /* Fade in */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in {
+      animation: fadeUp 0.3s ease forwards;
+    }
+
+    /* Tooltip */
+    [data-tip] {
+      position: relative;
+      cursor: default;
+    }
+
+    [data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      color: var(--text2);
+      font-size: 10px;
+      white-space: nowrap;
+      padding: 4px 8px;
+      border-radius: 5px;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Scrollbar global */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 3px;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="shell">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <a class="logo" href="#">
+        <div class="logo-icon">
+          <svg viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="1.5">
+            <path d="M2 8h3l2-5 2 10 2-5 1 0h2" />
+          </svg>
+        </div>
+        API Analyzer
+      </a>
+      <div style="width:1px; height:20px; background:var(--border); margin:0 4px;"></div>
+      <span style="font-size:11px; color:var(--text3);">Performance Dashboard</span>
+      <div class="topbar-right">
+        <div class="status-pill">
+          <div class="status-dot"></div>
+          System online
+        </div>
+        <button class="btn btn-ghost" style="font-size:11px; padding:6px 12px;" onclick="clearAll()">Clear data</button>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <nav class="sidebar">
+      <div class="nav-section">
+        <p class="nav-label">Workspace</p>
+        <div class="nav-item active" onclick="navigate('dashboard')">
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 3h12v2H2zm0 4h8v2H2zm0 4h5v2H2z" />
+          </svg>
+          Dashboard
+          <span class="nav-badge" id="req-count">0</span>
+        </div>
+        <div class="nav-item" onclick="navigate('history')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="6" />
+            <path d="M8 5v3l2 2" />
+          </svg>
+          History
+          <span class="nav-badge" id="hist-count">0</span>
+        </div>
+        <div class="nav-item" onclick="navigate('analytics')">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 3h4v4H3zm6 0h4v4h-4zM3 9h4v4H3zm6 3h1m2 0h-2m0 0v-2m0 2v2" />
+          </svg>
+          Analytics
+        </div>
+      </div>
+      <div class="nav-section">
+        <p class="nav-label">Config</p>
+        <div class="nav-item">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="2" />
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.3 3.3l1.4 1.4M11.3 11.3l1.4 1.4M3.3 12.7l1.4-1.4M11.3 4.7l1.4-1.4" />
+          </svg>
+          Settings
+        </div>
+        <div class="nav-item">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M8 1l1.5 3 3.5.5-2.5 2.5.5 3.5L8 9l-3 1.5.5-3.5L3 4.5 6.5 4z" />
+          </svg>
+          Environments
+        </div>
+      </div>
+      <div class="nav-section">
+        <p class="nav-label">Recent endpoints</p>
+        <div id="recent-endpoints" style="font-size:11px; color:var(--text3); padding:0 12px;">
+          No recent endpoints
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="main">
+
+      <!-- Page header -->
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Request Analyzer</h1>
+          <p class="page-sub">Test endpoints & monitor performance in real-time</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card" style="--accent-color: var(--accent);">
+          <p class="stat-label">Total requests</p>
+          <p class="stat-val" id="stat-total">0</p>
+          <p class="stat-sub">all time</p>
+        </div>
+        <div class="stat-card" style="--accent-color: var(--success);">
+          <p class="stat-label">Success rate</p>
+          <p class="stat-val" id="stat-success" style="color:var(--success);">—</p>
+          <p class="stat-sub">2xx responses</p>
+        </div>
+        <div class="stat-card" style="--accent-color: var(--warn);">
+          <p class="stat-label">Avg latency</p>
+          <p class="stat-val" id="stat-avg" style="color:var(--warn);">—</p>
+          <p class="stat-sub">milliseconds</p>
+        </div>
+        <div class="stat-card" style="--accent-color: var(--danger);">
+          <p class="stat-label">Failed</p>
+          <p class="stat-val" id="stat-failed" style="color:var(--danger);">0</p>
+          <p class="stat-sub">4xx / 5xx / error</p>
+        </div>
+      </div>
+
+      <!-- Request tester -->
+      <div class="card">
+        <div class="card-header">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M1 8l5-5 2 4 2-2 5 5" />
+          </svg>
+          Request Builder
+        </div>
+        <div class="card-body">
+          <div class="tester-row">
+            <select class="method-select" id="method">
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="DELETE">DELETE</option>
+              <option value="PATCH">PATCH</option>
+            </select>
+            <input class="url-input" type="text" id="url-input" placeholder="https://api.example.com/endpoint"
+              value="https://jsonplaceholder.typicode.com/posts/1" />
+            <button class="send-btn" id="send-btn" onclick="sendRequest()">
+              <span class="send-icon">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="2">
+                  <path d="M1 8h14M9 2l6 6-6 6" />
+                </svg>
+              </span>
+              <div class="spinner"></div>
+              Send
+            </button>
+          </div>
+
+          <div class="headers-section">
+            <p class="section-label">Headers</p>
+            <div id="headers-list">
+              <div class="kv-row">
+                <input class="kv-input" placeholder="Key (e.g. Authorization)" />
+                <input class="kv-input" placeholder="Value" />
+                <button class="icon-btn" onclick="removeHeader(this)">−</button>
+              </div>
+            </div>
+            <button class="btn btn-ghost" style="font-size:11px; padding:5px 12px; margin-top:6px;"
+              onclick="addHeader()">+ Add header</button>
+          </div>
+
+          <div class="headers-section" id="body-section" style="display:none;">
+            <p class="section-label">Request body (JSON)</p>
+            <textarea id="req-body" class="kv-input" rows="4"
+              style="width:100%; resize:vertical; font-family:var(--mono);" placeholder='{"key": "value"}'></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Response + Chart -->
+      <div class="two-col">
+
+        <!-- Response panel -->
+        <div class="response-panel" id="response-panel">
+          <div class="response-tabs">
+            <div class="resp-tab active" onclick="switchTab(this,'body')">Body</div>
+            <div class="resp-tab" onclick="switchTab(this,'headers')">Headers</div>
+            <div class="resp-tab" onclick="switchTab(this,'timing')">Timing</div>
+          </div>
+          <div id="resp-meta" class="resp-meta" style="display:none;"></div>
+          <div class="resp-body" id="resp-body">
+            <div class="empty-state">
+              <div class="empty-icon">◈</div>
+              <p>Send a request to see the response</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Latency chart -->
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M1 12l4-4 3 2 4-6 3 3" />
+            </svg>
+            Latency trend
+            <span style="margin-left:auto; font-size:10px; color:var(--text3);">last 10 requests</span>
+          </div>
+          <div class="chart-wrap">
+            <div class="mini-chart" id="latency-chart">
+              <div class="empty-state" style="font-size:11px; padding:10px;">No data yet</div>
+            </div>
+          </div>
+          <div style="padding: 0 18px 16px; display:flex; gap:16px; flex-wrap:wrap;">
+            <div>
+              <p style="font-size:10px; color:var(--text3); margin-bottom:3px;">Min</p>
+              <p style="font-size:13px; font-weight:500;" id="lat-min">—</p>
+            </div>
+            <div>
+              <p style="font-size:10px; color:var(--text3); margin-bottom:3px;">Max</p>
+              <p style="font-size:13px; font-weight:500;" id="lat-max">—</p>
+            </div>
+            <div>
+              <p style="font-size:10px; color:var(--text3); margin-bottom:3px;">P95</p>
+              <p style="font-size:13px; font-weight:500;" id="lat-p95">—</p>
+            </div>
+            <div>
+              <p style="font-size:10px; color:var(--text3); margin-bottom:3px;">Median</p>
+              <p style="font-size:13px; font-weight:500;" id="lat-med">—</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    // State
+    let history = [];
+    let latencies = [];
+    let activeTab = 'body';
+    let lastRespHeaders = {};
+    let lastRespTiming = {};
+
+    // LocalStorage helpers
+    function saveState() {
+      localStorage.setItem('apiHistory', JSON.stringify(history));
+      localStorage.setItem('apiLatencies', JSON.stringify(latencies));
+    }
+
+    function loadState() {
+      const savedHistory = localStorage.getItem('apiHistory');
+      const savedLatencies = localStorage.getItem('apiLatencies');
+      if (savedHistory) {
+        history = JSON.parse(savedHistory);
+      }
+      if (savedLatencies) {
+        latencies = JSON.parse(savedLatencies);
+      }
+      updateStats();
+      updateHistoryTable();
+      updateNavCounts();
+      updateLatencyChart();
+    }
+
+    // Show/hide body section based on method
+    document.getElementById('method').addEventListener('change', function () {
+      const bodyMethods = ['POST', 'PUT', 'PATCH'];
+      document.getElementById('body-section').style.display =
+        bodyMethods.includes(this.value) ? 'block' : 'none';
+    });
+
+    function addHeader() {
+      const list = document.getElementById('headers-list');
+      const row = document.createElement('div');
+      row.className = 'kv-row fade-in';
+      row.innerHTML = `
+    <input class="kv-input" placeholder="Key" />
+    <input class="kv-input" placeholder="Value" />
+    <button class="icon-btn" onclick="removeHeader(this)">−</button>
+  `;
+      list.appendChild(row);
+    }
+
+    function removeHeader(btn) {
+      const rows = document.querySelectorAll('#headers-list .kv-row');
+      if (rows.length > 1) btn.parentElement.remove();
+      else {
+        const inputs = btn.parentElement.querySelectorAll('input');
+        inputs.forEach(i => i.value = '');
+      }
+    }
+
+    function getHeaders() {
+      const hdrs = {};
+      document.querySelectorAll('#headers-list .kv-row').forEach(row => {
+        const [k, v] = row.querySelectorAll('input');
+        if (k.value.trim()) hdrs[k.value.trim()] = v.value.trim();
+      });
+      return hdrs;
+    }
+
+    // Init state on load
+    window.addEventListener('load', loadState);
+
+    async function sendRequest() {
+      const url = document.getElementById('url-input').value.trim();
+      if (!url) { alert('Please enter a URL'); return; }
+
+      const method = document.getElementById('method').value;
+      const btn = document.getElementById('send-btn');
+      btn.disabled = true;
+      btn.classList.add('loading');
+
+      const headers = getHeaders();
+      const opts = { method, headers };
+
+      if (['POST', 'PUT', 'PATCH'].includes(method)) {
+        const body = document.getElementById('req-body').value.trim();
+        if (body) {
+          opts.body = body;
+          if (!headers['Content-Type']) opts.headers['Content-Type'] = 'application/json';
+        }
+      }
+
+      const t0 = performance.now();
+      let status = 0, size = 0, respText = '', respHeaders = {};
+
+      try {
+        const res = await fetch(url, opts);
+        const t1 = performance.now();
+        const lat = Math.round(t1 - t0);
+        status = res.status;
+
+        // Capture headers
+        res.headers.forEach((v, k) => { respHeaders[k] = v; });
+        lastRespHeaders = respHeaders;
+
+        respText = await res.text();
+        size = new TextEncoder().encode(respText).length;
+
+        lastRespTiming = {
+          total: lat,
+          dns: Math.round(lat * 0.05),
+          connect: Math.round(lat * 0.15),
+          ttfb: Math.round(lat * 0.6),
+          download: Math.round(lat * 0.2),
+        };
+
+        recordRequest(method, url, status, lat, size, respText);
+        showResponse(status, lat, size, respText);
+        updateLatencyChart();
+
+      } catch (err) {
+        const t1 = performance.now();
+        const lat = Math.round(t1 - t0);
+        recordRequest(method, url, 0, lat, 0, String(err));
+        showError(err, lat);
+        updateLatencyChart();
+      }
+
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      updateRecentEndpoints(url);
+    }
+
+    function recordRequest(method, url, status, lat, size, body) {
+      history.unshift({ method, url, status, lat, size, body, time: new Date() });
+      latencies.unshift(lat);
+      if (latencies.length > 50) latencies.pop();
+      if (history.length > 100) history.pop();
+      saveState();
+      updateStats();
+      updateHistoryTable();
+      updateNavCounts();
+    }
+
+    function showResponse(status, lat, size, text) {
+      const meta = document.getElementById('resp-meta');
+      const cls = status >= 500 ? 'status-err' : status >= 400 ? 'status-err' : status >= 300 ? 'status-warn' : 'status-ok';
+      meta.style.display = 'flex';
+      meta.innerHTML = `
+    <span class="meta-badge ${cls}">${status} ${statusText(status)}</span>
+    <span class="meta-badge neutral">${lat}ms</span>
+    <span class="meta-badge neutral">${formatBytes(size)}</span>
+  `;
+
+      if (activeTab === 'body') renderBody(text);
+    }
+
+    function showError(err, lat) {
+      const meta = document.getElementById('resp-meta');
+      meta.style.display = 'flex';
+      meta.innerHTML = `
+    <span class="meta-badge status-err">Network error</span>
+    <span class="meta-badge neutral">${lat}ms</span>
+  `;
+      document.getElementById('resp-body').textContent = String(err);
+    }
+
+    function renderBody(text) {
+      const el = document.getElementById('resp-body');
+      try {
+        const json = JSON.parse(text);
+        el.innerHTML = syntaxHighlight(JSON.stringify(json, null, 2));
+      } catch {
+        el.textContent = text.slice(0, 5000) + (text.length > 5000 ? '\n… (truncated)' : '');
+      }
+    }
+
+    function syntaxHighlight(str) {
+      return str
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+          let cls = 'json-num';
+          if (/^"/.test(match)) cls = /:$/.test(match) ? 'json-key' : 'json-str';
+          else if (/true|false/.test(match)) cls = 'json-bool';
+          else if (/null/.test(match)) cls = 'json-null';
+          return `<span class="${cls}">${match}</span>`;
+        });
+    }
+
+    function switchTab(el, tab) {
+      document.querySelectorAll('.resp-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      activeTab = tab;
+
+      const body = document.getElementById('resp-body');
+      if (history.length === 0) return;
+      const last = history[0];
+
+      if (tab === 'body') {
+        renderBody(last.body || '');
+      } else if (tab === 'headers') {
+        const lines = Object.entries(lastRespHeaders)
+          .map(([k, v]) => `<span class="json-key">${k}</span>: <span class="json-str">"${v}"</span>`)
+          .join('\n');
+        body.innerHTML = lines || 'No headers captured';
+      } else if (tab === 'timing') {
+        const t = lastRespTiming;
+        if (!t.total) { body.textContent = 'No timing data'; return; }
+        body.innerHTML = [
+          `<span class="json-key">DNS lookup   </span>  <span class="json-num">${t.dns}ms</span>`,
+          `<span class="json-key">TCP connect  </span>  <span class="json-num">${t.connect}ms</span>`,
+          `<span class="json-key">Time to first byte </span>  <span class="json-num">${t.ttfb}ms</span>`,
+          `<span class="json-key">Download     </span>  <span class="json-num">${t.download}ms</span>`,
+          `<span class="json-key">─────────────</span>`,
+          `<span class="json-key">Total        </span>  <span class="json-num">${t.total}ms</span>`,
+        ].join('\n');
+      }
+    }
+
+    function updateStats() {
+      const total = history.length;
+      const success = history.filter(r => r.status >= 200 && r.status < 300).length;
+      const failed = history.filter(r => r.status === 0 || r.status >= 400).length;
+      const avg = latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-success').textContent = total ? Math.round(success / total * 100) + '%' : '—';
+      document.getElementById('stat-avg').textContent = total ? avg + 'ms' : '—';
+      document.getElementById('stat-failed').textContent = failed;
+
+      if (latencies.length) {
+        const sorted = [...latencies].sort((a, b) => a - b);
+        document.getElementById('lat-min').textContent = sorted[0] + 'ms';
+        document.getElementById('lat-max').textContent = sorted[sorted.length - 1] + 'ms';
+        const med = sorted[Math.floor(sorted.length / 2)];
+        document.getElementById('lat-med').textContent = med + 'ms';
+        const p95idx = Math.ceil(sorted.length * 0.95) - 1;
+        document.getElementById('lat-p95').textContent = sorted[Math.min(p95idx, sorted.length - 1)] + 'ms';
+      }
+    }
+
+    function updateLatencyChart() {
+      const chart = document.getElementById('latency-chart');
+      const data = latencies.slice(0, 10).reverse();
+      if (!data.length) return;
+      const max = Math.max(...data);
+      chart.innerHTML = data.map((v, i) => {
+        const pct = max > 0 ? Math.round((v / max) * 72) : 4;
+        const color = v < 200 ? '#00e096' : v < 800 ? '#ffb547' : '#ff5c7a';
+        return `<div class="bar-col" data-tip="${v}ms">
+      <div class="bar-col-fill" style="height:${pct}px; background:${color};"></div>
+      <span class="bar-col-label">${i + 1}</span>
+    </div>`;
+      }).join('');
+    }
+
+    function updateHistoryTable() {
+      const tbody = document.getElementById('history-body');
+      if (!history.length) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state">No requests yet.</div></td></tr>';
+        return;
+      }
+      document.getElementById('hist-meta').textContent = `${history.length} entr${history.length === 1 ? 'y' : 'ies'}`;
+      tbody.innerHTML = history.slice(0, 20).map((r, i) => {
+        const sc = r.status === 0 ? 'status-4xx' :
+          r.status >= 500 ? 'status-5xx' :
+            r.status >= 400 ? 'status-4xx' :
+              r.status >= 300 ? 'status-3xx' : 'status-2xx';
+        const statusLabel = r.status === 0 ? 'ERR' : r.status;
+        const barColor = r.lat < 200 ? 'var(--success)' : r.lat < 800 ? 'var(--warn)' : 'var(--danger)';
+        const barW = Math.min(100, Math.round(r.lat / 20));
+        const shortUrl = r.url.length > 45 ? r.url.slice(0, 45) + '…' : r.url;
+        const timeStr = r.time.toLocaleTimeString();
+        return `<tr class="fade-in">
+      <td style="color:var(--text3);">${history.length - i}</td>
+      <td><span class="method-tag ${r.method}">${r.method}</span></td>
+      <td style="font-family:var(--mono); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.url}">${shortUrl}</td>
+      <td><span class="status-badge ${sc}">${statusLabel}</span></td>
+      <td>
+        <div class="latency-bar">
+          <span style="min-width:52px; color:${barColor};">${r.lat}ms</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${barW}%; background:${barColor};"></div></div>
+        </div>
+      </td>
+      <td style="color:var(--text3);">${timeStr}</td>
+    </tr>`;
+      }).join('');
+    }
+
+    function updateNavCounts() {
+      document.getElementById('req-count').textContent = history.length;
+      document.getElementById('hist-count').textContent = history.length;
+    }
+
+    function updateRecentEndpoints(url) {
+      const el = document.getElementById('recent-endpoints');
+      const existing = Array.from(el.querySelectorAll('.recent-ep')).map(e => e.dataset.url);
+      if (existing.includes(url)) return;
+      const short = url.replace(/^https?:\/\/[^/]+/, '').slice(0, 28) || '/';
+      const item = document.createElement('div');
+      item.className = 'recent-ep';
+      item.dataset.url = url;
+      item.style.cssText = 'padding:5px 12px; font-size:11px; color:var(--text3); cursor:pointer; border-radius:5px; transition:background 0.1s; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+      item.textContent = short;
+      item.onclick = () => { document.getElementById('url-input').value = url; };
+      item.onmouseover = () => item.style.background = 'var(--surface)';
+      item.onmouseout = () => item.style.background = '';
+      if (el.textContent === 'No recent endpoints') el.textContent = '';
+      el.prepend(item);
+      if (el.children.length > 5) el.lastChild.remove();
+    }
+
+    function clearAll() {
+      if (!history.length) return;
+      if (!confirm('Clear all history and stats?')) return;
+      history = []; latencies = [];
+      updateStats(); updateHistoryTable(); updateNavCounts();
+      document.getElementById('resp-meta').style.display = 'none';
+      document.getElementById('resp-body').innerHTML = '<div class="empty-state"><div class="empty-icon">◈</div><p>Send a request to see the response</p></div>';
+      document.getElementById('latency-chart').innerHTML = '<div class="empty-state" style="font-size:11px;padding:10px;">No data yet</div>';
+      document.getElementById('lat-min').textContent = '—';
+      document.getElementById('lat-max').textContent = '—';
+      document.getElementById('lat-p95').textContent = '—';
+      document.getElementById('lat-med').textContent = '—';
+    }
+
+    function exportCSV() {
+      if (!history.length) { alert('No data to export'); return; }
+      const rows = [['#', 'Method', 'URL', 'Status', 'Latency (ms)', 'Time']];
+      history.forEach((r, i) => rows.push([history.length - i, r.method, r.url, r.status || 'ERR', r.lat, r.time.toISOString()]));
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+      a.download = 'api-history.csv';
+      a.click();
+    }
+
+
+
+    function statusText(code) {
+      const map = { 200: 'OK', 201: 'Created', 204: 'No Content', 301: 'Moved', 302: 'Found', 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 422: 'Unprocessable', 429: 'Too Many Requests', 500: 'Server Error', 502: 'Bad Gateway', 503: 'Unavailable' };
+      return map[code] || '';
+    }
+
+    function formatBytes(b) {
+      if (b < 1024) return b + 'B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + 'KB';
+      return (b / 1048576).toFixed(1) + 'MB';
+    }
+
+    function navigate(page) {
+      localStorage.setItem('activePage', page);
+      window.location.href = page + '.html';
+    }
+
+    // Set active nav on load
+    window.addEventListener('load', () => {
+      const activePage = localStorage.getItem('activePage') || 'dashboard';
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.textContent.trim().toLowerCase().includes(activePage)) {
+          item.classList.add('active');
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

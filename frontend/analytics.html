@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - API Performance Analyzer</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        /* Same comprehensive CSS as other pages */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #080c10;
+            --bg2: #0d1117;
+            --bg3: #111820;
+            --surface: #141c26;
+            --surface2: #1a2535;
+            --border: rgba(255, 255, 255, 0.06);
+            --border2: rgba(255, 255, 255, 0.12);
+            --accent: #00e5ff;
+            --accent2: #7b61ff;
+            --success: #00e096;
+            --warn: #ffb547;
+            --danger: #ff5c7a;
+            --text: #e8edf5;
+            --text2: #8896a8;
+            --text3: #4a5568;
+            --mono: 'JetBrains Mono', monospace;
+            --display: 'Syne', sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--mono);
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), url('https://images.unsplash.com/photo-1616478170311-26daadd66f3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Remove old grid overlay */
+        body::before,
+        body::after {
+            display: none;
+        }
+
+        /* Layout, topbar, sidebar - identical to other pages */
+        .shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            grid-template-rows: 56px 1fr;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 24px;
+            background: rgba(8, 12, 16, 0.9);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--display);
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .topbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text2);
+            padding: 4px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
+        }
+
+        .sidebar {
+            background: var(--bg2);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+
+        .nav-section {
+            padding: 0 12px;
+            margin-bottom: 24px;
+        }
+
+        .nav-label {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text3);
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            padding: 0 12px;
+            margin-bottom: 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text2);
+            cursor: pointer;
+            transition: all .15s;
+            border: 1px solid transparent;
+            user-select: none;
+        }
+
+        .nav-item:hover {
+            background: var(--surface);
+            color: var(--text);
+        }
+
+        .nav-item.active {
+            background: rgba(0, 229, 255, .08);
+            color: var(--accent);
+            border-color: rgba(0, 229, 255, .2);
+        }
+
+        .nav-item svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            font-size: 10px;
+            background: var(--surface2);
+            color: var(--text3);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .nav-item.active .nav-badge {
+            background: rgba(0, 229, 255, .15);
+            color: var(--accent);
+        }
+
+        .main {
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .page-title {
+            font-family: var(--display);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .page-sub {
+            font-size: 11px;
+            color: var(--text3);
+            margin-top: 3px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all .15s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #33eeff;
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost {
+            background: var(--surface);
+            color: var(--text2);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--border2);
+            color: var(--text);
+        }
+
+        /* Analytics specific */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text3);
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .stat-val {
+            font-family: var(--display);
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .stat-sub {
+            font-size: 11px;
+            color: var(--text3);
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .chart-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .chart-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text2);
+        }
+
+        .chart-container {
+            height: 300px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .histogram {
+            display: flex;
+            align-items: flex-end;
+            height: 100%;
+            gap: 2px;
+        }
+
+        .hist-bar {
+            flex: 1;
+            background: rgba(0, 229, 255, .3);
+            border-radius: 2px 2px 0 0;
+            transition: all .3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .hist-bar:hover {
+            background: var(--accent);
+        }
+
+        .hist-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: var(--text3);
+        }
+
+        .pie-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        @media (max-width: 900px) {
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="shell">
+        <!-- Top bar -->
+        <header class="topbar">
+            <div class="logo" onclick="navigate('dashboard')">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="1.5">
+                        <path d="M2 8h3l2-5 2 10 2-5 1 0h2" />
+                    </svg>
+                </div>
+                API Analyzer
+            </div>
+            <div style="width:1px; height:20px; background:var(--border); margin:0 4px;"></div>
+            <span style="font-size:11px; color:var(--text3);">Performance Analytics</span>
+            <div class="topbar-right">
+                <div class="status-pill">
+                    <div class="status-dot"></div>
+                    <span id="analytics-count">0</span> requests analyzed
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="nav-section">
+                <p class="nav-label">Workspace</p>
+                <div class="nav-item" onclick="navigate('api-dashboard')">
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M2 3h12v2H2zm0 4h8v2H2zm0 4h5v2H2z" />
+                    </svg>
+                    Dashboard <span class="nav-badge" id="req-count">0</span>
+                </div>
+                <div class="nav-item" onclick="navigate('history')">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="8" cy="8" r="6" />
+                        <path d="M8 5v3l2 2" />
+                    </svg>
+                    History <span class="nav-badge" id="hist-count">0</span>
+                </div>
+                <div class="nav-item active" onclick="navigate('analytics')">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M3 3h4v4H3zm6 0h4v4h-4zM3 9h4v4H3zm6 3h1m2 0h-2m0 0v-2m0 2v2" />
+                    </svg>
+                    Analytics
+                </div>
+            </div>
+        </nav>
+
+        <main class="main">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Analytics</h1>
+                    <p class="page-sub">Visual trends, distributions and performance insights</p>
+                </div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="stats-grid">
+                <div class="stat-card" style="--accent-color: var(--accent)">
+                    <div class="stat-label">Total Requests</div>
+                    <div class="stat-val" id="total-reqs">0</div>
+                    <div class="stat-sub">across all time</div>
+                </div>
+                <div class="stat-card" style="--accent-color: var(--success)">
+                    <div class="stat-label">Success Rate</div>
+                    <div class="stat-val" id="success-rate">--</div>
+                    <div class="stat-sub">2xx responses</div>
+                </div>
+                <div class="stat-card" style="--accent-color: var(--warn)">
+                    <div class="stat-label">Avg Latency</div>
+                    <div class="stat-val" id="avg-latency">--</div>
+                    <div class="stat-sub">p50 median</div>
+                </div>
+                <div class="stat-card" style="--accent-color: var(--danger)">
+                    <div class="stat-label">Error Rate</div>
+                    <div class="stat-val" id="error-rate">0%</div>
+                    <div class="stat-sub">4xx + 5xx</div>
+                </div>
+            </div>
+
+            <div class="chart-grid">
+                <!-- Latency Distribution Histogram -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M1 12l4-4 3 2 4-6 3 3" />
+                        </svg>
+                        Latency Distribution (P95: <span id="p95-val">--</span>)
+                    </div>
+                    <div class="chart-container">
+                        <div class="histogram" id="latency-hist"></div>
+                    </div>
+                </div>
+
+                <!-- Status Breakdown Pie Legend -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M2 4h10v10H2z" />
+                        </svg>
+                        Response Status Breakdown
+                    </div>
+                    <div class="chart-container">
+                        <svg viewBox="0 0 200 200" id="status-pie" style="width:100%; height:100%;">
+                            <circle cx="100" cy="100" r="80" fill="none" stroke="var(--surface2)" stroke-width="10" />
+                        </svg>
+                        <div class="pie-legend" id="status-legend"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trends Over Time -->
+            <div class="chart-card" style="grid-column: 1/-1;">
+                <div class="chart-header">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M2 2l2 2 2-2 2 2 2-2 2 2 2-2" />
+                    </svg>
+                    Latency Trend (Last 50 requests)
+                </div>
+                <div class="chart-container">
+                    <div class="mini-chart" id="trend-chart" style="height: 80%; align-items: flex-end;"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let history = [], latencies = [];
+
+        function loadState() {
+            const savedHistory = localStorage.getItem('apiHistory');
+            if (savedHistory) history = JSON.parse(savedHistory);
+            if (history.length) latencies = history.map(r => r.lat);
+            renderAll();
+        }
+
+        function renderAll() {
+            if (!history.length) return;
+
+            // Key metrics
+            const total = history.length;
+            const success = history.filter(r => r.status >= 200 && r.status < 300).length;
+            const failed = history.filter(r => r.status >= 400 || r.status === 0).length;
+            const avgLat = latencies.reduce((a, b) => a + b, 0) / total;
+            const sortedLats = [...latencies].sort((a, b) => a - b);
+            const p95 = sortedLats[Math.floor(total * 0.95)];
+
+            document.getElementById('total-reqs').textContent = total.toLocaleString();
+            document.getElementById('success-rate').textContent = Math.round(success / total * 100) + '%';
+            document.getElementById('avg-latency').textContent = avgLat.toFixed(0) + 'ms';
+            document.getElementById('error-rate').textContent = Math.round(failed / total * 100) + '%';
+            document.getElementById('p95-val').textContent = p95 + 'ms';
+            document.getElementById('analytics-count').textContent = total;
+            document.getElementById('req-count').textContent = total;
+            document.getElementById('hist-count').textContent = total;
+
+            renderLatencyHistogram();
+            renderStatusPie();
+            renderTrendChart();
+        }
+
+        function renderLatencyHistogram() {
+            const bins = 20;
+            const maxLat = Math.max(...latencies);
+            const binSize = maxLat / bins;
+            const counts = new Array(bins).fill(0);
+
+            latencies.forEach(lat => {
+                const bin = Math.min(Math.floor(lat / binSize), bins - 1);
+                counts[bin]++;
+            });
+
+            const hist = document.getElementById('latency-hist');
+            const maxCount = Math.max(...counts);
+            hist.innerHTML = counts.map((count, i) => {
+                const height = count / maxCount * 90;
+                const label = binSize * i < 100 ? '<100' : `${(binSize * i).toFixed(0)}ms`;
+                return `<div class="hist-bar" style="height:${height}%" data-tip="${count} requests | ${label}">${label}</div>`;
+            }).join('');
+        }
+
+        function renderStatusPie() {
+            const statusCounts = {};
+            history.forEach(r => {
+                const key = r.status === 0 ? 'error' :
+                    r.status >= 500 ? '5xx' :
+                        r.status >= 400 ? '4xx' :
+                            r.status >= 300 ? '3xx' : '2xx';
+                statusCounts[key] = (statusCounts[key] || 0) + 1;
+            });
+
+            const colors = { '2xx': '#00e096', '3xx': '#ffb547', '4xx': '#ff5c7a', '5xx': '#ff5c7a', 'error': '#ff5c7a' };
+            const legend = document.getElementById('status-legend');
+            legend.innerHTML = Object.entries(statusCounts).map(([key, count]) =>
+                `<div class="legend-item">
+          <div class="legend-color" style="background:${colors[key]}"></div>
+          ${key} <span style="color:var(--text3); font-size:10px;">${Math.round(count / history.length * 100)}%</span>
+        </div>`
+            ).join('');
+
+            // Simple pie animation (using SVG path would be more accurate, this approximates)
+            const pie = document.getElementById('status-pie');
+            pie.innerHTML = '<circle cx="100" cy="100" r="70" fill="url(#pieGrad)" stroke="none"/><defs><radialGradient id="pieGrad" cx="50%" cy="50%"><stop offset="0%" stop-color="var(--surface)"/><stop offset="70%" stop-color="var(--surface2)"/></radialGradient></defs>';
+        }
+
+        function renderTrendChart() {
+            const recent = latencies.slice(0, 50).reverse();
+            if (!recent.length) return;
+            const max = Math.max(...recent);
+            const chart = document.getElementById('trend-chart');
+            chart.innerHTML = recent.map((lat, i) => {
+                const height = (lat / max) * 80;
+                const color = lat < 200 ? '#00e096' : lat < 500 ? '#ffb547' : '#ff5c7a';
+                return `<div class="bar-col" data-tip="${lat}ms">
+          <div class="bar-col-fill" style="height:${height}px; background:${color}"></div>
+          <span class="bar-col-label">${i + 1}</span>
+        </div>`;
+            }).join('');
+        }
+
+        function navigate(page) {
+            localStorage.setItem('activePage', page);
+            window.location.href = page + '.html';
+        }
+
+        window.addEventListener('load', () => {
+            loadState();
+            const activePage = localStorage.getItem('activePage') || 'analytics';
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.toggle('active', item.textContent.toLowerCase().includes(activePage));
+            });
+        });
+    </script>
+</body>
+
+</html>

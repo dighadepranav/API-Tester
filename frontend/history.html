@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History - API Performance Analyzer</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #080c10;
+            --bg2: #0d1117;
+            --bg3: #111820;
+            --surface: #141c26;
+            --surface2: #1a2535;
+            --border: rgba(255, 255, 255, 0.06);
+            --border2: rgba(255, 255, 255, 0.12);
+            --accent: #00e5ff;
+            --accent2: #7b61ff;
+            --success: #00e096;
+            --warn: #ffb547;
+            --danger: #ff5c7a;
+            --text: #e8edf5;
+            --text2: #8896a8;
+            --text3: #4a5568;
+            --mono: 'JetBrains Mono', monospace;
+            --display: 'Syne', sans-serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--mono);
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)), url('https://images.unsplash.com/photo-1616478170311-26daadd66f3b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Remove old grid overlay */
+        body::before,
+        body::after {
+            display: none;
+        }
+
+        * {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Layout */
+        .shell {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            grid-template-rows: 56px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Top bar */
+        .topbar {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 24px;
+            background: rgba(8, 12, 16, 0.9);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(12px);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--display);
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .topbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text2);
+            padding: 4px 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .sidebar {
+            background: var(--bg2);
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            overflow-y: auto;
+        }
+
+        .nav-section {
+            padding: 0 12px;
+            margin-bottom: 24px;
+        }
+
+        .nav-label {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text3);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 0 12px;
+            margin-bottom: 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text2);
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+            user-select: none;
+        }
+
+        .nav-item:hover {
+            background: var(--surface);
+            color: var(--text);
+        }
+
+        .nav-item.active {
+            background: rgba(0, 229, 255, 0.08);
+            color: var(--accent);
+            border-color: rgba(0, 229, 255, 0.2);
+        }
+
+        .nav-item svg {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        .nav-badge {
+            margin-left: auto;
+            font-size: 10px;
+            background: var(--surface2);
+            color: var(--text3);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .nav-item.active .nav-badge {
+            background: rgba(0, 229, 255, 0.15);
+            color: var(--accent);
+        }
+
+        .main {
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .page-title {
+            font-family: var(--display);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .page-sub {
+            font-size: 11px;
+            color: var(--text3);
+            margin-top: 3px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: var(--mono);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #33eeff;
+            transform: translateY(-1px);
+        }
+
+        .btn-ghost {
+            background: var(--surface);
+            color: var(--text2);
+            border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--border2);
+            color: var(--text);
+        }
+
+        .history-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            background: var(--bg3);
+            border: 1px solid var(--border2);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 10px 14px;
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: var(--text3);
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+        }
+
+        .filter-select {
+            background: var(--bg3);
+            border: 1px solid var(--border2);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 10px 12px;
+            min-width: 120px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text2);
+            justify-content: space-between;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .history-table th {
+            font-size: 10px;
+            color: var(--text3);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            text-align: left;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 400;
+        }
+
+        .history-table td {
+            padding: 12px 16px;
+            font-size: 11px;
+            color: var(--text2);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .history-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .method-tag,
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .method-tag.GET {
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--accent);
+        }
+
+        .method-tag.POST {
+            background: rgba(123, 97, 255, 0.15);
+            color: #a78bfa;
+        }
+
+        .method-tag.PUT {
+            background: rgba(255, 181, 71, 0.1);
+            color: var(--warn);
+        }
+
+        .method-tag.DELETE {
+            background: rgba(255, 92, 122, 0.1);
+            color: var(--danger);
+        }
+
+        .status-2xx {
+            background: rgba(0, 224, 150, 0.1);
+            color: var(--success);
+        }
+
+        .status-4xx,
+        .status-5xx {
+            background: rgba(255, 92, 122, 0.1);
+            color: var(--danger);
+        }
+
+        .status-3xx {
+            background: rgba(255, 181, 71, 0.1);
+            color: var(--warn);
+        }
+
+        .latency-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bar-track {
+            height: 4px;
+            flex: 1;
+            max-width: 80px;
+            background: var(--surface2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text3);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="shell">
+        <!-- Top bar -->
+        <header class="topbar">
+            <a class="logo" onclick="navigate('dashboard')">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="#000" stroke-width="1.5">
+                        <path d="M2 8h3l2-5 2 10 2-5 1 0h2" />
+                    </svg>
+                </div>
+                API Analyzer
+            </a>
+            <div style="width:1px; height:20px; background:var(--border); margin:0 4px;"></div>
+            <span style="font-size:11px; color:var(--text3);">Request History</span>
+            <div class="topbar-right">
+                <div class="status-pill">
+                    <div class="status-dot"></div>
+                    <span id="history-count">0</span> requests
+                </div>
+                <button class="btn btn-ghost" style="font-size:11px; padding:6px 12px;" onclick="clearAll()">Clear
+                    All</button>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="nav-section">
+                <p class="nav-label">Workspace</p>
+                <div class="nav-item" onclick="navigate('api-dashboard')">
+                    <svg viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M2 3h12v2H2zm0 4h8v2H2zm0 4h5v2H2z" />
+                    </svg>
+                    Dashboard
+                    <span class="nav-badge" id="req-count">0</span>
+                </div>
+                <div class="nav-item active" onclick="navigate('history')">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="8" cy="8" r="6" />
+                        <path d="M8 5v3l2 2" />
+                    </svg>
+                    History
+                    <span class="nav-badge" id="hist-count">0</span>
+                </div>
+                <div class="nav-item" onclick="navigate('analytics')">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M3 3h4v4H3zm6 0h4v4h-4zM3 9h4v4H3zm6 3h1m2 0h-2m0 0v-2m0 2v2" />
+                    </svg>
+                    Analytics
+                </div>
+            </div>
+            <div class="nav-section">
+                <p class="nav-label">Config</p>
+                <div class="nav-item">...</div>
+            </div>
+        </nav>
+
+        <!-- Main content -->
+        <main class="main">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Request History</h1>
+                    <p class="page-sub">Complete log of all API calls with filtering and export</p>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-primary" onclick="exportCSV()">Export CSV</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="8" cy="8" r="6" />
+                        <path d="M8 5v3l2 2" />
+                    </svg>
+                    History (<span id="total-count">0</span>)
+                    <div class="history-controls">
+                        <input class="search-input" id="search-input" placeholder="Search URLs, methods..."
+                            oninput="filterHistory()">
+                        <select class="filter-select" id="status-filter" onchange="filterHistory()">
+                            <option value="">All Status</option>
+                            <option value="2xx">Success (2xx)</option>
+                            <option value="4xx">Client Error (4xx)</option>
+                            <option value="5xx">Server Error (5xx)</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Method</th>
+                                <th>URL</th>
+                                <th>Status</th>
+                                <th>Latency</th>
+                                <th>Size</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding:40px; color:var(--text3);">
+                                    <div class="empty-state">
+                                        <div style="font-size:48px; margin-bottom:12px; opacity:0.3;">📜</div>
+                                        No history yet
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let history = [];
+        let filteredHistory = [];
+
+        // Load state
+        function loadState() {
+            const saved = localStorage.getItem('apiHistory');
+            if (saved) {
+                history = JSON.parse(saved);
+                filteredHistory = [...history];
+                renderHistory();
+                updateCounts();
+            }
+        }
+
+        function renderHistory() {
+            const tbody = document.getElementById('history-tbody');
+            if (!filteredHistory.length) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--text3);"><div class="empty-state"><div style="font-size:48px; margin-bottom:12px; opacity:0.3;">📜</div>No requests match filter</div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filteredHistory.map((r, i) => {
+                const statusClass = r.status === 0 ? 'status-4xx' :
+                    r.status >= 500 ? 'status-5xx' :
+                        r.status >= 400 ? 'status-4xx' :
+                            r.status >= 300 ? 'status-3xx' : 'status-2xx';
+                const statusLabel = r.status === 0 ? 'ERR' : r.status;
+                const barColor = r.lat < 200 ? 'var(--success)' : r.lat < 800 ? 'var(--warn)' : 'var(--danger)';
+                const barW = Math.min(100, r.lat / 10);
+                const shortUrl = r.url.length > 60 ? r.url.slice(0, 60) + '…' : r.url;
+                const timeStr = new Date(r.time).toLocaleString();
+                return `
+          <tr>
+            <td>${history.length - history.indexOf(r)}</td>
+            <td><span class="method-tag method-tag-${r.method}">${r.method}</span></td>
+            <td title="${r.url}">${shortUrl}</td>
+            <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+            <td>
+              <div class="latency-bar">
+                <span style="color:${barColor};">${r.lat}ms</span>
+                <div class="bar-track">
+                  <div class="bar-fill" style="width:${barW}%; background:${barColor};"></div>
+                </div>
+              </div>
+            </td>
+            <td>${(r.size / 1024).toFixed(1)}kB</td>
+            <td style="color:var(--text3); font-size:10px;">${timeStr}</td>
+          </tr>`;
+            }).join('');
+        }
+
+        function filterHistory() {
+            const search = document.getElementById('search-input').value.toLowerCase();
+            const statusFilter = document.getElementById('status-filter').value;
+
+            filteredHistory = history.filter(r => {
+                const matchesSearch = !search ||
+                    r.method.toLowerCase().includes(search) ||
+                    r.url.toLowerCase().includes(search);
+
+                let matchesStatus = true;
+                if (statusFilter) {
+                    if (statusFilter === '2xx' && !(r.status >= 200 && r.status < 300)) matchesStatus = false;
+                    if (statusFilter === '4xx' && !(r.status >= 400 && r.status < 500)) matchesStatus = false;
+                    if (statusFilter === '5xx' && !(r.status >= 500)) matchesStatus = false;
+                }
+
+                return matchesSearch && matchesStatus;
+            });
+
+            renderHistory();
+            updateCounts();
+        }
+
+        function updateCounts() {
+            document.getElementById('total-count').textContent = filteredHistory.length;
+            document.getElementById('history-count').textContent = history.length;
+            document.getElementById('req-count').textContent = history.length;
+            document.getElementById('hist-count').textContent = history.length;
+        }
+
+        function exportCSV() {
+            if (!history.length) return alert('No data');
+            const rows = [['#', 'Method', 'URL', 'Status', 'Latency', 'Size', 'Time']];
+            history.forEach(r => rows.push([
+                history.length - history.indexOf(r),
+                r.method,
+                r.url,
+                r.status || 'ERR',
+                r.lat,
+                r.size,
+                new Date(r.time).toISOString()
+            ]));
+            const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\\n');
+            const a = document.createElement('a');
+            a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+            a.download = `api-history-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+        }
+
+        function clearAll() {
+            if (!history.length || !confirm('Clear all history?')) return;
+            history = [];
+            localStorage.removeItem('apiHistory');
+            localStorage.removeItem('apiLatencies');
+            renderHistory();
+            updateCounts();
+        }
+
+        function navigate(page) {
+            localStorage.setItem('activePage', page);
+            window.location.href = page + '.html';
+        }
+
+        // Init
+        window.addEventListener('load', () => {
+            loadState();
+            const activePage = localStorage.getItem('activePage') || 'history';
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.textContent.trim().toLowerCase().includes(activePage)) {
+                    item.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
